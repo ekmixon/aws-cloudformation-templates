@@ -48,15 +48,14 @@ def send(event, context, responseStatus, responseData, physicalResourceId,
          logger, reason=None):
 
     responseUrl = event['ResponseURL']
-    logger.debug("CFN response URL: " + responseUrl)
+    logger.debug(f"CFN response URL: {responseUrl}")
 
-    responseBody = {}
-    responseBody['Status'] = responseStatus
-    msg = 'See CloudWatch Log Stream: ' + context.log_stream_name
-    if not reason:
-        responseBody['Reason'] = msg
-    else:
-        responseBody['Reason'] = str(reason)[0:255] + ' (' + msg + ')'
+    responseBody = {'Status': responseStatus}
+    msg = f'See CloudWatch Log Stream: {context.log_stream_name}'
+    responseBody['Reason'] = (
+        str(reason)[:255] + ' (' + msg + ')' if reason else msg
+    )
+
     responseBody['PhysicalResourceId'] = physicalResourceId or 'NONE'
     responseBody['StackId'] = event['StackId']
     responseBody['RequestId'] = event['RequestId']
@@ -77,9 +76,9 @@ def send(event, context, responseStatus, responseData, physicalResourceId,
         response = requests.put(responseUrl,
                                 data=json_responseBody,
                                 headers=headers)
-        logger.info("CloudFormation returned status code: " + response.reason)
+        logger.info(f"CloudFormation returned status code: {response.reason}")
     except Exception as e:
-        logger.error("send(..) failed executing requests.put(..): " + str(e))
+        logger.error(f"send(..) failed executing requests.put(..): {str(e)}")
         raise
 
 
@@ -93,8 +92,10 @@ def timeout(event, context, logger):
 # Handler function
 def cfn_handler(event, context, create, update, delete, logger, init_failed):
 
-    logger.info("Lambda RequestId: %s CloudFormation RequestId: %s" %
-                (context.aws_request_id, event['RequestId']))
+    logger.info(
+        f"Lambda RequestId: {context.aws_request_id} CloudFormation RequestId: {event['RequestId']}"
+    )
+
 
     # Define an object to place any response information you would like to send
     # back to CloudFormation (these keys can then be used by Fn::GetAttr)
@@ -105,7 +106,7 @@ def cfn_handler(event, context, create, update, delete, logger, init_failed):
     # against the old id
     physicalResourceId = None
 
-    logger.debug("EVENT: " + str(event))
+    logger.debug(f"EVENT: {str(event)}")
     # handle init failures
     if init_failed:
         send(event, context, "FAILED", responseData, physicalResourceId,
@@ -119,7 +120,7 @@ def cfn_handler(event, context, create, update, delete, logger, init_failed):
 
     try:
         # Execute custom resource handlers
-        logger.info("Received a %s Request" % event['RequestType'])
+        logger.info(f"Received a {event['RequestType']} Request")
         if event['RequestType'] == 'Create':
             physicalResourceId, responseData = create(event, context)
         elif event['RequestType'] == 'Update':
@@ -132,8 +133,6 @@ def cfn_handler(event, context, create, update, delete, logger, init_failed):
         send(event, context, "SUCCESS", responseData, physicalResourceId,
              logger=logger)
 
-    # Catch any exceptions, log the stacktrace, send a failure back to
-    # CloudFormation and then raise an exception
     except Exception as e:
         logger.error(e, exc_info=True)
         send(event, context, "FAILED", responseData, physicalResourceId,

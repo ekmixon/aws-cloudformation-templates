@@ -27,7 +27,7 @@ def get_pl_id(pl_name, region):
     Get PrefixListID for given PrefixListName
     """
 
-    logger.info("Get PrefixListId for PrefixListName: %s in %s" % (pl_name, region)) 
+    logger.info(f"Get PrefixListId for PrefixListName: {pl_name} in {region}")
     try:
         ec2 = client('ec2', region_name=region)
         response = ec2.describe_prefix_lists(
@@ -41,11 +41,10 @@ def get_pl_id(pl_name, region):
             ]
         )
     except ClientError as e:
-        raise Exception("Error retrieving prefix list: %s" % e)
+        raise Exception(f"Error retrieving prefix list: {e}")
     prefix_list_id = response['PrefixLists'][0]['PrefixListId']
-    logger.info("Got %s" % prefix_list_id)
-    resp = {'PrefixListID': prefix_list_id}
-    return resp
+    logger.info(f"Got {prefix_list_id}")
+    return {'PrefixListID': prefix_list_id}
 
 
 def create(event, context):

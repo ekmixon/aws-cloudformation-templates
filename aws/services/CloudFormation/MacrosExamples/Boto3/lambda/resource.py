@@ -40,19 +40,19 @@ def execute(action, properties):
     action = action.split(".")
 
     if len(action) != 2:
-        return "FAILED", "Invalid boto3 call: {}".format(".".join(action))
+        return "FAILED", f'Invalid boto3 call: {".".join(action)}'
 
     client, function = action[0], action[1]
 
     try:
         client = boto3.client(client.lower())
     except Exception as e:
-        return "FAILED", "boto3 error: {}".format(e)
+        return "FAILED", f"boto3 error: {e}"
 
     try:
         function = getattr(client, function)
     except Exception as e:
-        return "FAILED", "boto3 error: {}".format(e)
+        return "FAILED", f"boto3 error: {e}"
 
     properties = {
         key[0].lower() + key[1:]: value
@@ -62,7 +62,7 @@ def execute(action, properties):
     try:
         function(**properties)
     except Exception as e:
-        return "FAILED", "boto3 error: {}".format(e)
+        return "FAILED", f"boto3 error: {e}"
 
     return "SUCCESS", "Completed successfully"
 

@@ -30,7 +30,7 @@ def handle_template(request_id, template):
                 len(
                     [
                         prop
-                        for prop in resource["Properties"]
+                        for prop in props
                         if prop in ["Body", "Base64Body", "Source"]
                     ]
                 )

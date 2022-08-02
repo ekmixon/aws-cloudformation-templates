@@ -63,13 +63,16 @@ def change_requires_update(attributes, old_values, current_values):
     # there's been a change.
     for attribute in attributes:
         if (attribute not in old_values) and (attribute in current_values):
-            logger.debug("New value for {}: {}".format(attribute, current_values[attribute]))
+            logger.debug(f"New value for {attribute}: {current_values[attribute]}")
             return True
         if (attribute in old_values) and (attribute not in current_values):
-            logger.debug("Value removed for {}: {}".format(attribute, old_values[attribute]))
+            logger.debug(f"Value removed for {attribute}: {old_values[attribute]}")
             return True
-        if (attribute in old_values) and (attribute in current_values):
-            logger.debug("Evaluating {}: {} vs. {}".format(attribute, current_values[attribute], old_values[attribute]))
+        if attribute in old_values:
+            logger.debug(
+                f"Evaluating {attribute}: {current_values[attribute]} vs. {old_values[attribute]}"
+            )
+
             if current_values[attribute] != old_values[attribute]:
                 return True
     return False
@@ -80,17 +83,25 @@ def convert_ops_prefs(ops_prefs):
     # values in the ops_prefs JSON object to ints before we can call the API
     logger.info("Converting Operation Preferences values")
     converted_ops_prefs = {}
-    needs_conversion = set(
-        ['FailureToleranceCount', 'FailureTolerancePercentage', 'MaxConcurrentCount', 'MaxConcurrentPercentage'])
+    needs_conversion = {
+        'FailureToleranceCount',
+        'FailureTolerancePercentage',
+        'MaxConcurrentCount',
+        'MaxConcurrentPercentage',
+    }
+
     for key, value in ops_prefs.items():
-        logger.debug("Evaluating {} : {}".format(key, value))
+        logger.debug(f"Evaluating {key} : {value}")
         if key in needs_conversion:
-            logger.debug("Converting {}".format(key))
+            logger.debug(f"Converting {key}")
             converted_ops_prefs[key] = int(value)
         elif key == 'RegionOrder':
             converted_ops_prefs['RegionOrder'] = value
         else:
-            logger.warning("Warning: Skipping unknown key: {} in Operation Preferences".format(key))
+            logger.warning(
+                f"Warning: Skipping unknown key: {key} in Operation Preferences"
+            )
+
     return converted_ops_prefs
 
 
@@ -123,9 +134,9 @@ def flatten_stacks(stack_instances):
     for instance in stack_instances:
         for account in instance['Accounts']:
             for region in instance['Regions']:
-                account_region = "{}/{}".format(account, region)
+                account_region = f"{account}/{region}"
                 if account_region in flat_stacks:
-                    raise Exception("{} / {} is defined multiple times".format(account, region))
+                    raise Exception(f"{account} / {region} is defined multiple times")
                 if 'ParameterOverrides' in instance:
                     flat_stacks[account_region] = instance['ParameterOverrides']
                 else:
@@ -142,7 +153,7 @@ def group_by_account(instance_set, flat_stacks):
             if flat_stacks[instance] == grouped_accounts[account]['overrides']:
                 grouped_accounts[account]['regions'].append(region)
             else:
-                raise Exception("The overrides didn't match account group for {}".format(instance))
+                raise Exception(f"The overrides didn't match account group for {instance}")
         else:
             grouped_accounts[account] = {'regions': [region],
                                          'overrides': flat_stacks[instance]}
@@ -157,11 +168,11 @@ def aggregate_instances(account_list, flat_stacks):
     # of API calls
     instances = []
     while accounts.keys():
-        aggregated_accounts = []
         (source_account, values) = accounts.popitem()
-        for account in accounts:
-            if accounts[account] == values:
-                aggregated_accounts.append(account)
+        aggregated_accounts = [
+            account for account in accounts if accounts[account] == values
+        ]
+
         for account in aggregated_accounts:
             accounts.pop(account)
         aggregated_accounts.append(source_account)
@@ -180,14 +191,16 @@ def create_stacks(set_region, set_name, accts, regions, param_overrides,
     retries = 60
     this_try = 0
 
-    logger.info("Creating stack instances with op prefs {}".format(ops_prefs))
-    logger.debug("StackSetName: {}, Accounts: {}, Regions: {}, ParameterOverrides: {}".format(
-        set_name, accts, regions, param_overrides))
+    logger.info(f"Creating stack instances with op prefs {ops_prefs}")
+    logger.debug(
+        f"StackSetName: {set_name}, Accounts: {accts}, Regions: {regions}, ParameterOverrides: {param_overrides}"
+    )
+
 
     while True:
         try:
             client = boto3.client('cloudformation', region_name=set_region)
-            response = client.create_stack_instances(
+            return client.create_stack_instances(
                 StackSetName=set_name,
                 Accounts=accts,
                 Regions=regions,
@@ -195,36 +208,39 @@ def create_stacks(set_region, set_name, accts, regions, param_overrides,
                 OperationPreferences=ops_prefs,
                 # OperationId='string'
             )
-            return response
+
         except ClientError as e:
             if e.response['Error']['Code'] == 'OperationInProgressException':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to create stack instances after {} tries".format(this_try))
-                    raise Exception("Error creating stack instances: {}".format(e))
+                    logger.warning(f"Failed to create stack instances after {this_try} tries")
+                    raise Exception(f"Error creating stack instances: {e}")
                 else:
                     logger.warning(
-                        "Create stack instances operation in progress for {} in {}. Sleeping for {} seconds.".format(
-                            set_name, set_region, sleep_time))
+                        f"Create stack instances operation in progress for {set_name} in {set_region}. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'Throttling':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to create stack instances after {} tries".format(this_try))
-                    raise Exception("Error creating stack instances: {}".format(e))
+                    logger.warning(f"Failed to create stack instances after {this_try} tries")
+                    raise Exception(f"Error creating stack instances: {e}")
                 else:
                     logger.warning(
-                        "Throttling exception encountered while creating stack instances. Backing off and retyring. " 
-                        "Sleeping for {} seconds.".format(sleep_time))
+                        f"Throttling exception encountered while creating stack instances. Backing off and retyring. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'StackSetNotFoundException':
                 raise Exception(
-                    "No StackSet matching {} found in {}. You must create before creating stack instances.".format(
-                        set_name, set_region))
+                    f"No StackSet matching {set_name} found in {set_region}. You must create before creating stack instances."
+                )
+
             else:
-                raise Exception("Error creating stack instances: {}".format(e))
+                raise Exception(f"Error creating stack instances: {e}")
 
 
 def update_stacks(set_region, set_name, accts, regions, param_overrides, ops_prefs):
@@ -233,18 +249,20 @@ def update_stacks(set_region, set_name, accts, regions, param_overrides, ops_pre
     retries = 60
     this_try = 0
 
-    logger.info("Updating stack instances with op prefs {}".format(ops_prefs))
+    logger.info(f"Updating stack instances with op prefs {ops_prefs}")
 
     # UpdateStackInstance only allows stackSetName, not stackSetId,
     # so we need to truncate.
     (set_name, uid) = set_name.split(':')
-    logger.debug("StackSetName: {}, Accounts: {}, Regions: {}, ParameterOverrides: {}".format(
-        set_name, accts, regions, param_overrides))
+    logger.debug(
+        f"StackSetName: {set_name}, Accounts: {accts}, Regions: {regions}, ParameterOverrides: {param_overrides}"
+    )
+
 
     while True:
         try:
             client = boto3.client('cloudformation', region_name=set_region)
-            response = client.update_stack_instances(
+            return client.update_stack_instances(
                 StackSetName=set_name,
                 Accounts=accts,
                 Regions=regions,
@@ -252,36 +270,39 @@ def update_stacks(set_region, set_name, accts, regions, param_overrides, ops_pre
                 OperationPreferences=ops_prefs,
                 # OperationId='string'
             )
-            return response
+
         except ClientError as e:
             if e.response['Error']['Code'] == 'OperationInProgressException':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to update stack instances after {} tries".format(this_try))
-                    raise Exception("Error updating stack instances: {}".format(e))
+                    logger.warning(f"Failed to update stack instances after {this_try} tries")
+                    raise Exception(f"Error updating stack instances: {e}")
                 else:
                     logger.warning(
-                        "Update stack instances operation in progress for {} in {}. Sleeping for {} seconds.".format(
-                            set_name, set_region, sleep_time))
+                        f"Update stack instances operation in progress for {set_name} in {set_region}. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'Throttling':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to update stack instances after {} tries".format(this_try))
-                    raise Exception("Error updating stack instances: {}".format(e))
+                    logger.warning(f"Failed to update stack instances after {this_try} tries")
+                    raise Exception(f"Error updating stack instances: {e}")
                 else:
                     logger.warning(
-                        "Throttling exception encountered while updating stack instances. Backing off and retyring. " 
-                        "Sleeping for {} seconds.".format(sleep_time))
+                        f"Throttling exception encountered while updating stack instances. Backing off and retyring. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'StackSetNotFoundException':
                 raise Exception(
-                    "No StackSet matching {} found in {}. You must create before updating stack instances.".format(
-                        set_name, set_region))
+                    f"No StackSet matching {set_name} found in {set_region}. You must create before updating stack instances."
+                )
+
             else:
-                raise Exception("Unexpected error: {}".format(e))
+                raise Exception(f"Unexpected error: {e}")
 
 
 def delete_stacks(set_region, set_id, accts, regions, ops_prefs):
@@ -290,13 +311,13 @@ def delete_stacks(set_region, set_id, accts, regions, ops_prefs):
     retries = 60
     this_try = 0
 
-    logger.info("Deleting stack instances with op prefs {}".format(ops_prefs))
-    logger.debug("StackSetName: {}, Accounts: {}, Regions: {}".format(set_id, accts, regions))
+    logger.info(f"Deleting stack instances with op prefs {ops_prefs}")
+    logger.debug(f"StackSetName: {set_id}, Accounts: {accts}, Regions: {regions}")
 
     while True:
         try:
             client = boto3.client('cloudformation', region_name=set_region)
-            response = client.delete_stack_instances(
+            return client.delete_stack_instances(
                 StackSetName=set_id,
                 Accounts=accts,
                 Regions=regions,
@@ -304,35 +325,37 @@ def delete_stacks(set_region, set_id, accts, regions, ops_prefs):
                 RetainStacks=False,
                 # OperationId='string'
             )
-            return response
+
         except ClientError as e:
             if e.response['Error']['Code'] == 'OperationInProgressException':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to delete stack instances after {} tries".format(this_try))
-                    raise Exception("Error deleting stack instances: {}".format(e))
+                    logger.warning(f"Failed to delete stack instances after {this_try} tries")
+                    raise Exception(f"Error deleting stack instances: {e}")
                 else:
                     logger.warning(
-                        "Delete stack instances operation in progress for {} in {}. Sleeping for {} seconds.".format(
-                            set_id, set_region, sleep_time))
+                        f"Delete stack instances operation in progress for {set_id} in {set_region}. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'Throttling':
                 this_try += 1
                 if this_try == retries:
-                    logger.warning("Failed to delete stack instances after {} tries".format(this_try))
-                    raise Exception("Error deleting stack instances: {}".format(e))
+                    logger.warning(f"Failed to delete stack instances after {this_try} tries")
+                    raise Exception(f"Error deleting stack instances: {e}")
                 else:
                     logger.warning(
-                        "Throttling exception encountered while deleting stack instances. Backing off and retyring. " 
-                        "Sleeping for {} seconds.".format(sleep_time))
+                        f"Throttling exception encountered while deleting stack instances. Backing off and retyring. Sleeping for {sleep_time} seconds."
+                    )
+
                     sleep(sleep_time)
                     continue
             elif e.response['Error']['Code'] == 'StackSetNotFoundException':
-                return "No StackSet matching {} found in {}. You must create before deleting stack instances.".format(
-                    set_id, set_region)
+                return f"No StackSet matching {set_id} found in {set_region}. You must create before deleting stack instances."
+
             else:
-                return "Unexpected error: {}".format(e)
+                return f"Unexpected error: {e}"
 
 
 def update_stack_set(set_region, set_id, set_description, set_template,
@@ -362,22 +385,24 @@ def update_stack_set(set_region, set_id, set_description, set_template,
             if response['ResponseMetadata']['HTTPStatusCode'] == 200:
                 return set_id
             else:
-                raise Exception("HTTP Error: {}".format(response))
+                raise Exception(f"HTTP Error: {response}")
         except ClientError as e:
             if e.response['Error']['Code'] == 'OperationInProgressException':
                 this_try += 1
                 if this_try == retries:
-                    raise Exception("Failed to update StackSet after {} tries.".format(this_try))
-                else:
-                    logger.warning(
-                        "Update StackSet operation in progress for {}. Sleeping for {} seconds.".format(
-                            set_id, sleep_time))
-                    sleep(sleep_time)
-                    continue
+                    raise Exception(f"Failed to update StackSet after {this_try} tries.")
+                logger.warning(
+                    f"Update StackSet operation in progress for {set_id}. Sleeping for {sleep_time} seconds."
+                )
+
+                sleep(sleep_time)
             elif e.response['Error']['Code'] == 'StackSetNotEmptyException':
-                raise Exception("There are still stacks in set {}. You must delete these first.".format(set_id))
+                raise Exception(
+                    f"There are still stacks in set {set_id}. You must delete these first."
+                )
+
             else:
-                raise Exception("Unexpected error: {}".format(e))
+                raise Exception(f"Unexpected error: {e}")
 
 
 def create(event, context):

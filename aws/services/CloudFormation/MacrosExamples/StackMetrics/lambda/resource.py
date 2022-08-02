@@ -64,8 +64,14 @@ def handler(event, context):
         if action == "Create":
             log(stack, "ResourceCount", resources)
 
-        cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, "{} metrics".format(stack))
+        cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, f"{stack} metrics")
     except Exception as e:
-        cfnresponse.send(event, context, cfnresponse.FAILED, {
-            "Data": str(e),
-        }, "{} metrics".format(stack))
+        cfnresponse.send(
+            event,
+            context,
+            cfnresponse.FAILED,
+            {
+                "Data": str(e),
+            },
+            f"{stack} metrics",
+        )

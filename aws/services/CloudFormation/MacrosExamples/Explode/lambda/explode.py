@@ -44,10 +44,7 @@ def replace_explode_in_string(value, map_data):
         try:
             replace_value = map_data[explode_key]
         except KeyError:
-            print("Missing item {} in mapping while processing {}: {}".format(
-                explode_key,
-                key,
-                value))
+            print(f"Missing item {explode_key} in mapping while processing {key}: {value}")
         if isinstance(replace_value, int):
             value = replace_value
             # No further explosion is possible on an int
@@ -75,7 +72,7 @@ def handle_section_transform(section, mappings):
         except KeyError:
             # This resource refers to a mapping entry which doesn't exist, so
             # fail
-            print('Unable to find mapping for exploding object {}'.format(resource_name))
+            print(f'Unable to find mapping for exploding object {resource_name}')
             raise
         resource_instances = explode_map_data.keys()
         for resource_instance in resource_instances:

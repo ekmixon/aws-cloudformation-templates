@@ -45,17 +45,18 @@ def format_response_body(event, context, response_status, response_data, physica
     """Format the response for Cloudformation."""
     if DEBUG_MODE is True:
         print("Started function format_response_body")
-    response_body = {}
-    response_body['Status'] = response_status
-    if response_status is "FAILED":
-        response_body['Reason'] = response_data['Message']
-    else:
-        response_body['Reason'] = "completed"
-    response_body['PhysicalResourceId'] = physical_resource_id or context.log_stream_name
-    response_body['StackId'] = event['StackId']
-    response_body['RequestId'] = event['RequestId']
-    response_body['LogicalResourceId'] = event['LogicalResourceId']
-    response_body['Data'] = response_data
+    response_body = {
+        'Status': response_status,
+        'Reason': response_data['Message']
+        if response_status is "FAILED"
+        else "completed",
+        'PhysicalResourceId': physical_resource_id or context.log_stream_name,
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'Data': response_data,
+    }
+
     if DEBUG_MODE is True:
         print("Finished function format_response_body")
     return response_body
@@ -70,7 +71,7 @@ def send(event, context, response_status, response_data, physical_resource_id):
         response_body = format_response_body(event, context, response_status, response_data, physical_resource_id)
         json_response_body = json.dumps(response_body)
         if DEBUG_MODE is True:
-            print("CF Response Body: %s" % str(json_response_body))
+            print(f"CF Response Body: {str(json_response_body)}")
         headers = {
             'content-type': '',
             'content-length': str(len(json_response_body))
@@ -100,17 +101,17 @@ def validate_role_on_create(event, context):
     except Exception as error:  # pylint: disable=W0703
         custom_raise_exception(event, context, str('Error describing our stack to discover our IAM role, error text follows:\n' + str(error)))
     if 'Stacks' in describe_stacks_response:
-        if describe_stacks_response['Stacks']:
-            if 'RoleARN' in describe_stacks_response['Stacks'][0]:
-                stack_role = describe_stacks_response['Stacks'][0]['RoleARN']
-            else:
-                stack_role = None
+        if (
+            describe_stacks_response['Stacks']
+            and 'RoleARN' in describe_stacks_response['Stacks'][0]
+        ):
+            stack_role = describe_stacks_response['Stacks'][0]['RoleARN']
         else:
             stack_role = None
     else:
         stack_role = None
     if DEBUG_MODE is True:
-        print("Finished function validate_role_on_create, role is %s" % stack_role)
+        print(f"Finished function validate_role_on_create, role is {stack_role}")
 
 
 def custom_raise_exception(event, context, message):
@@ -141,8 +142,8 @@ def validate_inputs(event, context):
     else:
         validate_role_on_create(event, context)
     if DEBUG_MODE is True:
-        print("Stack ID : %s" % event['StackId'])
-        print("Stack Name : %s" % str(event['StackId']).split('/')[1])
+        print(f"Stack ID : {event['StackId']}")
+        print(f"Stack Name : {str(event['StackId']).split('/')[1]}")
 
 
 def get_kms_key_policy(event, context):

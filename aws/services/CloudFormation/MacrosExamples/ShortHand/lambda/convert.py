@@ -21,12 +21,13 @@ import re
 SUB_RE = re.compile(r"\$\{(?!!)")
 
 def handle_value(value):
-    if SUB_RE.match(value):
-        return {
+    return (
+        {
             "Fn::Sub": value,
         }
-
-    return value
+        if SUB_RE.match(value)
+        else value
+    )
 
 def unroll_props(rolled):
     props = {}
@@ -54,14 +55,10 @@ def parse_name(name):
         if "=" not in part
     ]
 
-    props = unroll_props({
-        key: value
-        for key, value in [
-            part.split("=")
-            for part
-            in parts if "=" in part
-        ]
-    })
+    props = unroll_props(
+        dict([part.split("=") for part in parts if "=" in part])
+    )
+
 
     return ident, props
 
@@ -75,10 +72,9 @@ def convert(value):
             yield ident, props
     elif isinstance(value, list):
         for v in value:
-            for ident, props in convert(v):
-                yield ident, props
+            yield from convert(v)
     else:
-        raise Exception("Bad format at: {}".format(value))
+        raise Exception(f"Bad format at: {value}")
 
 def convert_template(template):
     resources = {}
@@ -99,7 +95,7 @@ def convert_template(template):
         types = resolve.resource(resource["Type"])
 
         if len(types) != 1:
-            raise Exception("Ambiguous or unknown resource type: {}".format(resource["Type"]))
+            raise Exception(f'Ambiguous or unknown resource type: {resource["Type"]}')
 
         resource["Type"] = types[0]
 
@@ -111,10 +107,10 @@ def convert_template(template):
             else:
                 counts[resource["Type"]] += 1
 
-            while "{}{}".format(name, counts[resource["Type"]]) in resources:
+            while f'{name}{counts[resource["Type"]]}' in resources:
                 counts[resource["Type"]] += 1
 
-            name = "{}{}".format(name, counts[resource["Type"]])
+            name = f'{name}{counts[resource["Type"]]}'
 
         resources[name] = resource
 

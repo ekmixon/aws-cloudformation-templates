@@ -220,31 +220,29 @@ all_roles_template = '''
 }
 '''
 
-# TODO: Add policy snippets for other services (e.g. SNS, SQS, etc) and other
-# action groups (e.g. ReadOnly, ReadWrite, FullAccess) using the samples above 
-# as a reference
-
-# Simple data structure to hold all of the policy templates for easier lookup/reference
-policytemplates = {}
 # Add the S3 policy templates
-s3policytemplates = {}
-s3policytemplates['ReadOnly'] = s3_readonly_template
-s3policytemplates['ReadWrite'] = s3_readwrite_template
-policytemplates['s3'] = s3policytemplates
+s3policytemplates = {
+    'ReadOnly': s3_readonly_template,
+    'ReadWrite': s3_readwrite_template,
+}
+
 # Add the DynamoDB policy templates
-ddbpolicytemplates = {}
-ddbpolicytemplates['ReadOnly'] = ddb_readonly_template
-ddbpolicytemplates['ReadWrite'] = ddb_readwrite_template
-policytemplates['dynamodb'] = ddbpolicytemplates
+ddbpolicytemplates = {
+    'ReadOnly': ddb_readonly_template,
+    'ReadWrite': ddb_readwrite_template,
+}
+
 # Add the SSM policy templates
-ssmpolicytemplates = {}
-ssmpolicytemplates['ReadOnly'] = ssm_readonly_template
-policytemplates['ssm'] = ssmpolicytemplates
+ssmpolicytemplates = {'ReadOnly': ssm_readonly_template}
 # Add the KMS policy templates
-kmspolicytemplates = {}
-kmspolicytemplates['ReadOnly'] = kms_readonly_template
-policytemplates['kms'] = kmspolicytemplates
+kmspolicytemplates = {'ReadOnly': kms_readonly_template}
+policytemplates = {
+    's3': s3policytemplates,
+    'dynamodb': ddbpolicytemplates,
+    'ssm': ssmpolicytemplates,
+    'kms': kmspolicytemplates,
+}
+
 # Add the all roles policy templates
-allrolestemplates = {}
-allrolestemplates['default'] = all_roles_template
+allrolestemplates = {'default': all_roles_template}
 policytemplates['allroles'] = allrolestemplates

@@ -30,35 +30,35 @@ def handler(event, context):
 # Function to convert/expand the template
 def convert_template(fragment):
     # Debug output
-    print ('This was the fragment: {}'.format(fragment))
-    
+    print(f'This was the fragment: {fragment}')
+
     # Loop through each resource in the template
     resources = fragment['Resources']
     for resource in resources:
-        print ('Determining if {} is an IAM role'.format(resource))
+        print(f'Determining if {resource} is an IAM role')
         resourcejson = resources[resource]
         # If the resource is an IAM Role, expand the shorthand notation to the proper
         # CloudFormation using the function below, otherwise leave the resource as is
         if resourcejson['Type'] == 'AWS::IAM::Role':
-            print ('Found a role: {}'.format(resource))
+            print(f'Found a role: {resource}')
             # Expanding role
             resources[resource] = expand_role(resourcejson)
-    
+
     # Debug output
-    print ('This is the transformed fragment: {}'.format(fragment))
+    print(f'This is the transformed fragment: {fragment}')
     # Return the converted/expanded template fragment
     return fragment
 
 # Function to expand shorthand role definitions into proper CloudFormation
 def expand_role(rolefragment):
     # Debug output
-    print ('This is the role fragment: {}'.format(rolefragment))
-    
+    print(f'This is the role fragment: {rolefragment}')
+
     # Extract shorthand properties for role type, name, and desired permissions
     roletype = rolefragment['Properties']['Type']
     rolename = rolefragment['Properties']['Name']
     permissions = rolefragment['Properties']['Permissions']
- 
+
     # Get the basic role template (from policytemplates.py) and do a simple string
     # replace to set the name and the AWS service principal for the trust policy (e.g. lambda)
     returnval = roletemplate.replace('<ROLETYPE>',roletype.lower())
@@ -84,20 +84,23 @@ def expand_role(rolefragment):
     # Loop through each of the short hand permissions
     for permission in permissions:
         # Debug output
-        print ('permission: {}'.format(permission))
+        print(f'permission: {permission}')
         # Split each shorthand permission into an action group (e.g. ReadOnly) and the associated Resource
         for actiongroup,resource in permission.items():
-            print ('actiongroup: {}, resource: {}'.format(actiongroup,resource))
+            print(f'actiongroup: {actiongroup}, resource: {resource}')
             # Use the function below to extract the service (e.g. S3) from the resource ARN
             service = servicefromresource(resource)
-            print ('service: {}'.format(service))
+            print(f'service: {service}')
             # Lookup the given policy snippet from policytemplates.py based on the service & action group
             # If the necessary snippet isn't included in policytemplates.py err out
             if service in policytemplates and actiongroup in policytemplates[service]:
                 policytemplate = policytemplates[service][actiongroup]
             else:
                 # TODO: Better error handling
-                raise Exception('No policy template found for service: {} and actiongroup: {}'.format(service,actiongroup))
+                raise Exception(
+                    f'No policy template found for service: {service} and actiongroup: {actiongroup}'
+                )
+
             # Substitute the placeholder in the template for the actual resource 
             policytemplate = policytemplate.replace('<RESOURCE>',resource)
             # Policy names must be unique, appending a UUID is a simple way to guarantee that
@@ -105,9 +108,9 @@ def expand_role(rolefragment):
             policytemplate = policytemplate.replace('<UUID>', uuidval)
             # Convert the policy snippet to json and add it as an inline policy to the overall return values
             policytemplatejson = json.loads(policytemplate)
-            print ('adding policy: {}'.format(policytemplate))
+            print(f'adding policy: {policytemplate}')
             returnvaljson['Properties']['Policies'].append(policytemplatejson)
-      
+
     # In addition to the permissions in the shorthand notation add the 'allroles' policy template
     # This template is used to provide permissions like CloudWatchLogs instead of forcing each
     # developer to repeatedly specify common permissions
@@ -115,9 +118,9 @@ def expand_role(rolefragment):
     allrolespolicytemplate = policytemplates['allroles']['default']
     allrolespolicytemplate = allrolespolicytemplate.replace('<UUID>', uuidval)
     allrolespolicytemplatejson = json.loads(allrolespolicytemplate)
-    print ('adding policy: {}'.format(allrolespolicytemplate))
+    print(f'adding policy: {allrolespolicytemplate}')
     returnvaljson['Properties']['Policies'].append(allrolespolicytemplatejson)
-  
+
     # Return the expanded proper CloudFormation 
     return returnvaljson
   

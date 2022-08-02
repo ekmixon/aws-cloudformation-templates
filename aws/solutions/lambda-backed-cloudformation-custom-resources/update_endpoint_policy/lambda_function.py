@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """ClooudFormation custom Lambda backed resource that appends a given bucket ARN to a S3 VPC Endpoint policy."""
+
 # Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
@@ -35,10 +36,10 @@ from botocore.vendored import requests
 
 try:
     DEBUG_MODE = os.environ['DEBUG_MODE']
-    print("DEBUG_MODE = " + str(DEBUG_MODE))
+    print(f"DEBUG_MODE = {str(DEBUG_MODE)}")
 except KeyError:
     DEBUG_MODE = False  # Manually change when debugging
-    print("DEBUG_MODE = " + str(DEBUG_MODE))
+    print(f"DEBUG_MODE = {DEBUG_MODE}")
 
 try:
     CFN_CLIENT = boto3.client('cloudformation')
@@ -51,17 +52,18 @@ def format_response_body(event, context, response_status, response_data, physica
     """Format the response for Cloudformation."""
     if DEBUG_MODE is True:
         print("Started function format_response_body")
-    response_body = {}
-    response_body['Status'] = response_status
-    if response_status is "FAILED":
-        response_body['Reason'] = response_data['Message']
-    else:
-        response_body['Reason'] = "completed"
-    response_body['PhysicalResourceId'] = physical_resource_id or context.log_stream_name
-    response_body['StackId'] = event['StackId']
-    response_body['RequestId'] = event['RequestId']
-    response_body['LogicalResourceId'] = event['LogicalResourceId']
-    response_body['Data'] = response_data
+    response_body = {
+        'Status': response_status,
+        'Reason': response_data['Message']
+        if response_status is "FAILED"
+        else "completed",
+        'PhysicalResourceId': physical_resource_id or context.log_stream_name,
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'Data': response_data,
+    }
+
     if DEBUG_MODE is True:
         print("Finished function format_response_body")
     return response_body
@@ -76,7 +78,7 @@ def send(event, context, response_status, response_data, physical_resource_id):
         response_body = format_response_body(event, context, response_status, response_data, physical_resource_id)
         json_response_body = json.dumps(response_body)
         if DEBUG_MODE is True:
-            print("CF Response Body: %s" % str(json_response_body))
+            print(f"CF Response Body: {str(json_response_body)}")
         headers = {
             'content-type': '',
             'content-length': str(len(json_response_body))
@@ -106,17 +108,17 @@ def validate_role_on_create(event, context):
     except Exception as error:  # pylint: disable=W0703
         custom_raise_exception(event, context, str('Error describing our stack to discover our IAM role, error text follows:\n' + str(error)))
     if 'Stacks' in describe_stacks_response:
-        if describe_stacks_response['Stacks']:
-            if 'RoleARN' in describe_stacks_response['Stacks'][0]:
-                stack_role = describe_stacks_response['Stacks'][0]['RoleARN']
-            else:
-                stack_role = None
+        if (
+            describe_stacks_response['Stacks']
+            and 'RoleARN' in describe_stacks_response['Stacks'][0]
+        ):
+            stack_role = describe_stacks_response['Stacks'][0]['RoleARN']
         else:
             stack_role = None
     else:
         stack_role = None
     if DEBUG_MODE is True:
-        print("Finished function validate_role_on_create, role is %s" % stack_role)
+        print(f"Finished function validate_role_on_create, role is {stack_role}")
 
 
 def custom_raise_exception(event, context, message):
@@ -160,8 +162,8 @@ def validate_inputs(event, context):
     else:
         validate_role_on_create(event, context)
     if DEBUG_MODE is True:
-        print("Stack ID : %s" % event['StackId'])
-        print("Stack Name : %s" % str(event['StackId']).split('/')[1])
+        print(f"Stack ID : {event['StackId']}")
+        print(f"Stack Name : {str(event['StackId']).split('/')[1]}")
 
 
 def describe_vpc_endpoints(event, context, ec2_client):
@@ -280,9 +282,9 @@ def cloudformation_delete(event, context, ec2_client):
 
 def lambda_handler(event, context):
     """Main Lambda function."""
-    print("event:" + str(event))
+    print(f"event:{str(event)}")
     if DEBUG_MODE:
-        print("event:" + str(event))
+        print(f"event:{str(event)}")
     validate_inputs(event, context)
     ec2_client = connect_to_region(event, context, event['ResourceProperties']['region'])
     if event['RequestType'] == 'Create':

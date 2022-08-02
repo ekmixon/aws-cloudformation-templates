@@ -62,10 +62,10 @@ def get_registered_topics(directory_id: str) -> List[str]:
         Existing SNS Topics configured for directory monitoring
     """
     response = ds_client.describe_event_topics(DirectoryId=directory_id)
-    registered_topics: list = []
-    for registered_topic in response["EventTopics"]:
-        registered_topics.append(registered_topic["TopicName"])
-    return registered_topics
+    return [
+        registered_topic["TopicName"]
+        for registered_topic in response["EventTopics"]
+    ]
 
 
 def register_directory_monitoring_topic(directory_id: str, topic: str) -> None:

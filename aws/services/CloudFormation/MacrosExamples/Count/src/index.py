@@ -7,7 +7,7 @@ def process_template(template,parameters):
 
     for name, resource in template['Resources'].items():
         if 'Count' in resource:
-            
+
             # Check if the value of Count is referenced to a parameter passed in the template
             try:
                 refValue = new_template['Resources'][name]['Count'].pop('Ref')
@@ -15,12 +15,15 @@ def process_template(template,parameters):
                 count = int(parameters[refValue])
                 # Remove the Count property from this resource
                 new_template['Resources'][name].pop('Count')
-            
+
             except AttributeError:
                 # Use numeric count value
                 count = new_template['Resources'][name].pop('Count')
-            
-            print("Found 'Count' property with value {} in '{}' resource....multiplying!".format(count,name))
+
+            print(
+                f"Found 'Count' property with value {count} in '{name}' resource....multiplying!"
+            )
+
             # Remove the original resource from the template but take a local copy of it
             resourceToMultiply = new_template['Resources'].pop(name)
             # Create a new block of the resource multiplied with names ending in the iterator and the placeholders substituted
@@ -31,7 +34,7 @@ def process_template(template,parameters):
                 status = 'failed'
                 return status, template
         else:
-            print("Did not find 'Count' property in '{}' resource....Nothing to do!".format(name))
+            print(f"Did not find 'Count' property in '{name}' resource....Nothing to do!")
     return status, new_template
 
 def update_placeholder(resource_structure, iteration):
@@ -42,7 +45,10 @@ def update_placeholder(resource_structure, iteration):
 
     # If the placeholder is found then replace it
     if placeHolderCount > 0:
-        print("Found {} occurrences of decimal placeholder in JSON, replacing with iterator value {}".format(placeHolderCount, iteration))
+        print(
+            f"Found {placeHolderCount} occurrences of decimal placeholder in JSON, replacing with iterator value {iteration}"
+        )
+
         # Make a list of the values that we will use to replace the decimal placeholders - the values will all be the same
         placeHolderReplacementValues = [iteration] * placeHolderCount
         # Replace the decimal placeholders using the list - the syntax below expands the list
@@ -57,7 +63,7 @@ def multiply(resource_name, resource_structure, count):
     resources = {}
     # Loop according to the number of times we want to multiply, creating a new resource each time
     for iteration in range(1, (count + 1)):
-        print("Multiplying '{}', iteration count {}".format(resource_name,iteration))
+        print(f"Multiplying '{resource_name}', iteration count {iteration}")
         multipliedResourceStructure = update_placeholder(resource_structure,iteration)
         resources[resource_name+str(iteration)] = multipliedResourceStructure
     return resources

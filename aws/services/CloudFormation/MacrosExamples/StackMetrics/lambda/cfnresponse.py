@@ -16,15 +16,16 @@ def send(event, context, responseStatus, responseData, physicalResourceId=None, 
 
     print(responseUrl)
 
-    responseBody = {}
-    responseBody['Status'] = responseStatus
-    responseBody['Reason'] = 'See the details in CloudWatch Log Stream: ' + context.log_stream_name
-    responseBody['PhysicalResourceId'] = physicalResourceId or context.log_stream_name
-    responseBody['StackId'] = event['StackId']
-    responseBody['RequestId'] = event['RequestId']
-    responseBody['LogicalResourceId'] = event['LogicalResourceId']
-    responseBody['NoEcho'] = noEcho
-    responseBody['Data'] = responseData
+    responseBody = {
+        'Status': responseStatus,
+        'Reason': f'See the details in CloudWatch Log Stream: {context.log_stream_name}',
+        'PhysicalResourceId': physicalResourceId or context.log_stream_name,
+        'StackId': event['StackId'],
+        'RequestId': event['RequestId'],
+        'LogicalResourceId': event['LogicalResourceId'],
+        'NoEcho': noEcho,
+        'Data': responseData,
+    }
 
     json_responseBody = json.dumps(responseBody)
 
@@ -36,8 +37,8 @@ def send(event, context, responseStatus, responseData, physicalResourceId=None, 
     }
 
     try:
-        
+
         response = http.request('PUT',responseUrl,body=json_responseBody.encode('utf-8'),headers=headers)
-        print("Status code: " + response.reason)
+        print(f"Status code: {response.reason}")
     except Exception as e:
-        print("send(..) failed executing requests.put(..): " + str(e))
+        print(f"send(..) failed executing requests.put(..): {str(e)}")
